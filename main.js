@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pixiv 分享到 Discord (phixiv)
 // @namespace    http://tampermonkey.net/
-// @version      1.0.0
+// @version      1.0.1
 // @description  在 Pixiv 作品頁分享按鈕旁加入 Discord 按鈕，將作品連結轉為 phixiv 後送至 webhook
 // @author       Lin_tsen
 // @match        *://www.pixiv.net/artworks/*
@@ -22,6 +22,7 @@
     const URL_CONVERSION_RULES = {
         sourceHosts: new Set(['pixiv.net', 'www.pixiv.net']),
         targetHost: 'www.phixiv.net',
+        targetPathSuffix: '/1-5',
         pathPattern: /^\/artworks\/\d+/i,
         addRefParam: null
     };
@@ -465,6 +466,12 @@
             }
 
             url.hostname = URL_CONVERSION_RULES.targetHost;
+            if (URL_CONVERSION_RULES.targetPathSuffix) {
+                const suffix = URL_CONVERSION_RULES.targetPathSuffix.startsWith('/')
+                    ? URL_CONVERSION_RULES.targetPathSuffix
+                    : `/${URL_CONVERSION_RULES.targetPathSuffix}`;
+                url.pathname = `${url.pathname.replace(/\/$/, '')}${suffix}`;
+            }
             if (URL_CONVERSION_RULES.addRefParam) {
                 url.searchParams.set('ref', URL_CONVERSION_RULES.addRefParam);
             }
