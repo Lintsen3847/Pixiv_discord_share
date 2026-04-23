@@ -41,6 +41,7 @@
 
     function showToast(message, isError) {
         const toast = document.createElement('div');
+        toast.className = 'pixiv-discord-toast';
         toast.textContent = message;
         toast.style.cssText = [
             'position: fixed',
@@ -71,6 +72,18 @@
             toast.style.transform = 'translateY(8px)';
             setTimeout(() => toast.remove(), 220);
         }, 2200);
+    }
+
+    function debounce(fn, ms) {
+        let timer = null;
+        return (...args) => {
+            if (timer) {
+                clearTimeout(timer);
+            }
+            timer = setTimeout(() => {
+                fn(...args);
+            }, ms);
+        };
     }
 
     function normalizeWebhookUrl(input) {
@@ -526,9 +539,20 @@
     }
 
     async function postToAllDiscordWebhooks(webhookUrls, sharedUrl) {
-        const results = await Promise.allSettled(
-            webhookUrls.map((webhookUrl) => postToDiscord(webhookUrl, sharedUrl))
-        );
+        const results = [];
+        for (let i = 0; i < webhookUrls.length; i += 1) {
+            const webhookUrl = webhookUrls[i];
+            try {
+                await postToDiscord(webhookUrl, sharedUrl);
+                results.push({ status: 'fulfilled' });
+            } catch (error) {
+                results.push({ status: 'rejected', reason: error });
+            }
+            // Delay between requests to avoid Discord rate limiting
+            if (i < webhookUrls.length - 1) {
+                await new Promise((resolve) => setTimeout(resolve, 200));
+            }
+        }
 
         const successCount = results.filter((result) => result.status === 'fulfilled').length;
         const failedResults = results.filter((result) => result.status === 'rejected');
@@ -544,11 +568,7 @@
     }
 
     function findPixivShareButton() {
-        const strict = document.querySelector('div.sc-e18a6d7c-2.rfJdg > button[aria-haspopup="true"].style_transparentButton__czlx7');
-        if (strict) {
-            return strict;
-        }
-
+        // Prefer aria-label matching over fragile CSS class names that change on redeploy
         const fallbackByAria = Array.from(document.querySelectorAll('button[aria-haspopup="true"]')).find((button) => {
             const label = (button.getAttribute('aria-label') || '').toLowerCase();
             if (/share|分享|シェア/.test(label)) {
@@ -654,14 +674,18 @@
     }
 
     function setupObserver() {
-        const observer = new MutationObserver(() => {
+        const observer = new MutationObserver(debounce(() => {
             injectDiscordButtonNearShare();
-        });
+        }, 50));
 
         observer.observe(document.body, {
             childList: true,
             subtree: true
         });
+
+        window.addEventListener('beforeunload', () => {
+            observer.disconnect();
+        }, { once: true });
 
         injectDiscordButtonNearShare();
     }
