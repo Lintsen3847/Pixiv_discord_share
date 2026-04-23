@@ -539,17 +539,18 @@
     }
 
     async function postToAllDiscordWebhooks(webhookUrls, sharedUrl) {
+        const CONCURRENCY_LIMIT = 3;
         const results = [];
-        for (let i = 0; i < webhookUrls.length; i += 1) {
-            const webhookUrl = webhookUrls[i];
-            try {
-                await postToDiscord(webhookUrl, sharedUrl);
-                results.push({ status: 'fulfilled' });
-            } catch (error) {
-                results.push({ status: 'rejected', reason: error });
-            }
-            // Delay between requests to avoid Discord rate limiting
-            if (i < webhookUrls.length - 1) {
+
+        for (let i = 0; i < webhookUrls.length; i += CONCURRENCY_LIMIT) {
+            const batch = webhookUrls.slice(i, i + CONCURRENCY_LIMIT);
+            const batchResults = await Promise.allSettled(
+                batch.map((webhookUrl) => postToDiscord(webhookUrl, sharedUrl))
+            );
+            results.push(...batchResults);
+
+            // Small delay between batches to avoid Discord rate limiting
+            if (i + CONCURRENCY_LIMIT < webhookUrls.length) {
                 await new Promise((resolve) => setTimeout(resolve, 200));
             }
         }
@@ -571,11 +572,7 @@
         // Prefer aria-label matching over fragile CSS class names that change on redeploy
         const fallbackByAria = Array.from(document.querySelectorAll('button[aria-haspopup="true"]')).find((button) => {
             const label = (button.getAttribute('aria-label') || '').toLowerCase();
-            if (/share|分享|シェア/.test(label)) {
-                return true;
-            }
-            const className = String(button.className || '');
-            return className.includes('style_transparentButton');
+            return /share|分享|シェア/.test(label);
         });
 
         return fallbackByAria || null;
