@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pixiv 分享到 Discord (phixiv)
 // @namespace    http://tampermonkey.net/
-// @version      1.0.1
+// @version      1.0.2
 // @description  在 Pixiv 作品頁分享按鈕旁加入 Discord 按鈕，將作品連結轉為 phixiv 後送至 webhook
 // @author       Lin_tsen
 // @match        *://www.pixiv.net/artworks/*
